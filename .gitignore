@@ -5,6 +5,9 @@ __pycache__/
 # Results files
 *.txt
 
+# RStudio
+.Rproj.user/
+
 # C extensions
 *.so
 

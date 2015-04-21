@@ -8,7 +8,11 @@ from acousticsim.helper import get_vowel_points
 from acousticsim.praat.wrapper import (to_pitch_praat, to_formants_praat,
                                         to_intensity_praat, to_mfcc_praat)
 
-from acousticsim.distance.point import point_distance
+from acousticsim.distance.point import point_distance, euclidean
+from acousticsim.distance.dct import dct_distance
+from acousticsim.distance.dtw import dtw_distance
+from acousticsim.distance.xcorr import xcorr_distance
+
 
 praat_path = r'C:\Users\michael\Documents\Praat\praatcon.exe'
 
@@ -80,6 +84,42 @@ def third_distance(rep_one, rep_two):
     point_two = begin + ((end - begin)/3)
     return point_distance(rep_one, rep_two, point_one, point_two)
 
+def vowel_dist(dist_func, rep_one, rep_two):
+    base, _ = os.path.splitext(rep_one._filepath)
+    one_textgrid = base + '.TextGrid'
+    one_begin,one_end = get_vowel_points(one_textgrid, tier_name = 'Vowel', vowel_label = 'V')
+
+    base, _ = os.path.splitext(rep_two._filepath)
+    two_textgrid = base + '.TextGrid'
+    two_begin,two_end = get_vowel_points(two_textgrid, tier_name = 'Vowel', vowel_label = 'V')
+
+    return dist_func(rep_one[one_begin, one_end], rep_two[two_begin, two_end])
+
+def duration_distance(rep_one, rep_two):
+    base, _ = os.path.splitext(rep_one._filepath)
+    one_textgrid = base + '.TextGrid'
+    one_begin,one_end = get_vowel_points(one_textgrid, tier_name = 'Vowel', vowel_label = 'V')
+    if one_begin is None:
+        one_begin = 0
+    if one_end is None:
+        one_end = rep_one._duration
+    one_durations = [one_begin, one_end - one_begin, rep_one._duration - one_end]
+
+    base, _ = os.path.splitext(rep_two._filepath)
+    two_textgrid = base + '.TextGrid'
+    two_begin,two_end = get_vowel_points(two_textgrid, tier_name = 'Vowel', vowel_label = 'V')
+    if two_begin is None:
+        two_begin = 0
+    if two_end is None:
+        two_end = rep_two._duration
+    two_durations = [two_begin, two_end - two_begin, rep_two._duration - two_end]
+
+    return euclidean(one_durations, two_durations)
+
+vowel_dtw = partial(vowel_dist,dtw_distance)
+vowel_dct = partial(vowel_dist,dct_distance)
+vowel_xcorr = partial(vowel_dist,xcorr_distance)
+
 def load_axb():
     path_mapping = list()
     with open(os.path.join(data_dir,'axb.txt'),'r') as f:
@@ -135,11 +175,11 @@ def convert_path_mapping(path_mapping):
         new_path_mapping.add((mapping[2],mapping[1]))
     return list(new_path_mapping)
 
-def calc_asim(path_mapping, rep, match_func):
-    asim = acoustic_similarity_mapping(path_mapping, rep = rep,
+def calc_asim(path_mapping, rep, match_func, cache = None):
+    asim, cache = acoustic_similarity_mapping(path_mapping, rep = rep,
                                     match_function = match_func, use_multi=True,
-                                    num_cores = 4)
-    return asim
+                                    num_cores = 4, cache = cache, return_rep = True)
+    return asim, cache
 
 if __name__ == '__main__':
 
@@ -153,13 +193,22 @@ if __name__ == '__main__':
     dist_dict = {'dtw': 'dtw',
                 'dct': 'dct',
                 'xcorr': 'xcorr',
+                'dtw_vowel': vowel_dtw,
+                'dct_vowel': vowel_dct,
+                'xcorr_vowel': vowel_xcorr,
                 'midpoint': midpoint_distance,
                 'third': third_distance}
 
     path_mapping = load_axb()
     for_asim = convert_path_mapping(path_mapping)
     for k,v in rep_dict.items():
+        cache = None
         for k2,v2 in dist_dict.items():
+            if os.path.exists('{}_{}.txt'.format(k, k2)):
+                continue
             print(k, k2)
-            asim = calc_asim(for_asim, v, v2)
+            asim, cache = calc_asim(for_asim, v, v2, cache = cache)
             output_acousticsim(path_mapping, asim, '{}_{}.txt'.format(k, k2))
+    #Duration distance
+    asim, cache = calc_asim(for_asim, v, duration_distance, cache = cache)
+    output_acousticsim(path_mapping, asim, 'segmental_duration.txt')
