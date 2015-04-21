@@ -25,4 +25,6 @@ durdist$Difference <- durdist$BaseToModel - durdist$ShadToModel
 axb <- merge(axb, durdist[,c('Shadower','Model','Word','Difference')])
 
 mod = glmer(Dependent ~ Difference + (1+Difference|Model) + (1+Difference|Shadower) + (1+Difference|Listener) + (1+Difference|Word),data = axb, family = 'binomial')
+
+mod.trimmed = glmer(Dependent ~ Difference + (1+Difference|Model) + (1+Difference|Shadower) + (1+Difference|Listener) + (1+Difference|Word),data = axb, family = 'binomial', subset = abs(scale(residuals(mod))) < 2.5)
 summary(mod)

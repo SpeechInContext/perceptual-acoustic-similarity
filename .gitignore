@@ -7,6 +7,7 @@ __pycache__/
 
 # RStudio
 .Rproj.user/
+.Rhistory
 
 # C extensions
 *.so
