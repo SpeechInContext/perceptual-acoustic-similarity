@@ -13,6 +13,8 @@ from acousticsim.distance.dct import dct_distance
 from acousticsim.distance.dtw import dtw_distance
 from acousticsim.distance.xcorr import xcorr_distance
 
+from acousticsim.representations import Envelopes, Mfcc
+
 
 praat_path = r'C:\Users\michael\Documents\Praat\praatcon.exe'
 
@@ -181,9 +183,23 @@ def calc_asim(path_mapping, rep, match_func, cache = None):
                                     num_cores = 4, cache = cache, return_rep = True)
     return asim, cache
 
-if __name__ == '__main__':
+mfcc20 = partial(Mfcc, freq_lims = (80,7800), num_coeffs = 20,
+                        win_len = 0.025, time_step = 0.01)
 
-    rep_dict = {'mfcc': 'mfcc',
+mfcc20Power = partial(Mfcc, freq_lims = (80,7800), num_coeffs = 20,
+                        win_len = 0.025, time_step = 0.01, use_power = True)
+
+mfcc = partial(Mfcc, freq_lims = (80,7800), num_coeffs = 12,
+                        win_len = 0.025, time_step = 0.01)
+
+mfccPower = partial(Mfcc, freq_lims = (80,7800), num_coeffs = 12,
+                        win_len = 0.025, time_step = 0.01, use_power = True)
+
+def main():
+    rep_dict = {'mfcc': mfcc,
+                'mfcc20': mfcc20,
+                'mfccPower': mfccPower,
+                'mfcc20Power': mfcc20Power,
                 'mfcc_praat':praat_mfcc,
                 'ampenv': 'envelopes',
                 'pitch_praat': praat_pitch,
@@ -212,3 +228,22 @@ if __name__ == '__main__':
     #Duration distance
     asim, cache = calc_asim(for_asim, v, duration_distance, cache = cache)
     output_acousticsim(path_mapping, asim, 'segmental_duration.txt')
+
+def debugging():
+    from matplotlib import pyplot as plt
+    path_one = r'C:\Users\michael\Documents\Data\ATI_new\Models\Male\304\304_boot.wav'
+    path_two = r'C:\Users\michael\Documents\Data\ATI_new\Shadowers\Female\114\114_boot_shadowing304.wav'
+    rep_one = Envelopes(path_one, (80, 8000),8)
+    print(rep_one.to_array())
+    plt.plot(rep_one.to_array())
+    plt.show()
+    rep_two = Envelopes(path_two, (80, 8000),8)
+    plt.plot(rep_two.to_array())
+    plt.show()
+    print(rep_one._rep)
+    dist = vowel_dct(rep_one, rep_two)
+    print(dist)
+
+if __name__ == '__main__':
+    main()
+    #debugging()
